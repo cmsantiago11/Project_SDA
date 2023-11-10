@@ -4,15 +4,23 @@
 #include <ArduinoJson.h> 
 #include "esp_system.h"
 
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
+#include <NimBLEDevice.h>
+#include <NimBLEAdvertisedDevice.h>
+#include "NimBLEEddystoneURL.h"
+#include "NimBLEEddystoneTLM.h"
+#include "NimBLEBeacon.h"
 
-#define SCAN_TIME  10 // seconds
 
-boolean METRIC = true; //Set true for metric system; false for imperial
+
+#define ENDIAN_CHANGE_U16(x) ((((x)&0xFF00) >> 8) + (((x)&0xFF) << 8))
+
+int scanTime = 5; //In seconds
 BLEScan *pBLEScan;
+
+BLEClient*  pClient;
+BLERemoteCharacteristic* pCharacteristic;
+
+BLEAdvertisedDevice sensor;
 
 
 
@@ -28,16 +36,20 @@ PubSubClient client(espClient);
 void init_wifi(const char* nombre_red,const char* contrasena){
   WiFi.begin(nombre_red, contrasena);
 
-  while (WiFi.status() != WL_CONNECTED){  
+  while (WiFi.status() != WL_CONNECTED){
+    Serial.print(".");  
     delay(500);
   }
+  Serial.println("Conectado a la red WiFi");
 }
 
 void init_mqtt(const char* servidor,const int port){
   client.setServer(servidor,port);
   while (!client.connected()){      
-
+    client.connect("ESP32Client");
+    delay(500);
   }
+  Serial.println("Conectado al servidor MQTT");
 }
 
 void send_Json(float temp, float hum, float bat){
@@ -54,71 +66,57 @@ void send_Json(float temp, float hum, float bat){
 }
 
 
-class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
-  void onResult(BLEAdvertisedDevice advertisedDevice)
-  {
-    if (advertisedDevice.haveName() && advertisedDevice.haveServiceData() && !advertisedDevice.getName().compare("ATC_6B3C77")) {
-
-      int serviceDataCount = advertisedDevice.getServiceDataCount();
-      std::string strServiceData = advertisedDevice.getServiceData(0);
-
-      uint8_t* 	Payload=advertisedDevice.getPayload();
-
-      //Serial.printf("\n\nAdvertised Device: %s\n", advertisedDevice.toString().c_str());
-
-      
-      char cTemp1[3];
-      sprintf(cTemp1, "%02X", Payload[10]);
-      char cTemp2[3];
-      sprintf(cTemp2, "%02X", Payload[11]);
-
-      char cHum[3];
-      sprintf(cHum, "%02X", Payload[12]);
-
-      char cBat[3];
-      sprintf(cBat, "%02X", Payload[13]);
-
-      float Temperature = 255*strtol(cTemp1, NULL, 16)+strtol(cTemp2, NULL, 16);
-      float Temp = Temperature/10.0;
-
-      long Humidity = strtol(cHum, NULL, 16);
-
-      long Battery = strtol(cBat, NULL, 16);
-
-      send_Json(Temp,Humidity,Battery);
-    }
-  }
-};
-
-void initBluetooth()
-{
-  BLEDevice::init("");
-  pBLEScan = BLEDevice::getScan(); //create new scan
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  pBLEScan->setInterval(0x50);
-  pBLEScan->setWindow(0x30);
-}
-
-
 
 void setup() {
   Serial.begin(115200);
   init_wifi(ssid,password);
   init_mqtt(mqttServer,mqttPort);
-  initBluetooth();
+
+
+  BLEDevice::init("");
+  pBLEScan = BLEDevice::getScan(); //create new scan
+  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99); // less or equal setInterval value
+  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+  Serial.print("Devices found: ");
+  Serial.println(foundDevices.getCount());
+  for (int i=0; i<foundDevices.getCount(); i++) {
+    //Serial.println(foundDevices.getDevice(i).getAddress().toString().c_str());
+    if (foundDevices.getDevice(i).getName() == "ATC_6B3C77") {
+      pBLEScan->stop();
+      sensor = foundDevices.getDevice(i);
+      Serial.println("Found ATC_6B3C77");
+      pClient  = BLEDevice::createClient();
+      pClient->connect(&sensor);
+      Serial.println(" - Connected to server");
+      pClient->discoverAttributes();
+      Serial.println(" - Discovered attributes");
+      break;
+    } 
+  }
+  pBLEScan->clearResults(); 
 }
 
 
 
 void loop() {
   
-  char printLog[256];
-  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  BLEScanResults foundDevices = pBLEScan->start(SCAN_TIME);
-  int count = foundDevices.getCount();
+  BLERemoteService* pService = pClient->getService("0000181A-0000-1000-8000-00805F9B34FB");
+  pCharacteristic = pService->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");
+  std::string value = pCharacteristic->readValue();
+  Serial.println("The characteristic value was: ");
+  Serial.println(value.c_str());
+  for (size_t i = 0; i < value.size(); ++i) {
+      Serial.print("0x");
+      if (value[i] < 0x10) {
+        Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
+      }
+      Serial.print(value[i], HEX);
+      Serial.print(" ");
+    }
+  Serial.println();
+  send_Json(random(100)/10,random(100)/10,random(100)/10);
 
-  delay(100);
+  delay(3000);
 }
