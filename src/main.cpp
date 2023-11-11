@@ -24,8 +24,8 @@ BLEAdvertisedDevice sensor;
 
 
 
-const char* ssid = "Azrrael";
-const char* password = "3006750425ABC";
+const char* ssid = "xxxxx";
+const char* password = "xxxxxxxx";
 const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883;
 
@@ -46,7 +46,7 @@ void init_wifi(const char* nombre_red,const char* contrasena){
 void init_mqtt(const char* servidor,const int port){
   client.setServer(servidor,port);
   while (!client.connected()){      
-    client.connect("ESP32Client");
+    client.connect("ESP32Client","ESP_SDA", "Sda12345");
     delay(500);
   }
   Serial.println("Conectado al servidor MQTT");
