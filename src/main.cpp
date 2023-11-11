@@ -24,8 +24,8 @@ BLEAdvertisedDevice sensor;
 
 
 
-const char* ssid = "Calle_Mendez";
-const char* password = "Frida1628";
+const char* ssid = "Minder89";
+const char* password = "hincapie79";
 const char* mqttServer = "broker.mqtt.cool";
 const int mqttPort = 1883;
 
@@ -102,17 +102,22 @@ void setup() {
 
 void loop() {
   
+  BLERemoteService* pService = pClient->getService("0000180F-0000-1000-8000-00805F9B34FB"); 
+  pCharacteristic = pService->getCharacteristic("00002A19-0000-1000-8000-00805F9B34FB"); //battery level
+  std::string bateria = pCharacteristic->readValue(); 
   BLERemoteService* pService = pClient->getService("0000181A-0000-1000-8000-00805F9B34FB");
-  pCharacteristic = pService->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");
-  std::string value = pCharacteristic->readValue();
+  pCharacteristic = pService->getCharacteristic("00002A1F-0000-1000-8000-00805F9B34FB");//Temperature
+  std::string temperatura = pCharacteristic->readValue(); //temperature=(hex2*255+hex1)/100
+  pCharacteristic = pService->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");//Humidity
+  std::string humedad = pCharacteristic->readValue(); //humidity=(hex2*2.55)+(hex1/100)
   Serial.println("The characteristic value was: ");
-  Serial.println(value.c_str());
-  for (size_t i = 0; i < value.size(); ++i) {
+  Serial.println(bateria.c_str());
+  for (size_t i = 0; i < bateria.size(); ++i) {
       Serial.print("0x");
-      if (value[i] < 0x10) {
+      if (bateria[i] < 0x10) {
         Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
       }
-      Serial.print(value[i], HEX);
+      Serial.print(bateria[i], HEX);
       Serial.print(" ");
     }
   Serial.println();
