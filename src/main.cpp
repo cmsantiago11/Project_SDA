@@ -24,9 +24,9 @@ BLEAdvertisedDevice sensor;
 
 
 
-const char* ssid = "Minder89";
-const char* password = "hincapie79";
-const char* mqttServer = "broker.mqtt.cool";
+const char* ssid = "Azrrael";
+const char* password = "3006750425ABC";
+const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883;
 
 
@@ -90,7 +90,7 @@ void setup() {
       pClient  = BLEDevice::createClient();
       pClient->connect(&sensor);
       Serial.println(" - Connected to server");
-      pClient->discoverAttributes();
+      //pClient->discoverAttributes();
       Serial.println(" - Discovered attributes");
       break;
     } 
@@ -105,12 +105,12 @@ void loop() {
   BLERemoteService* pService = pClient->getService("0000180F-0000-1000-8000-00805F9B34FB"); 
   pCharacteristic = pService->getCharacteristic("00002A19-0000-1000-8000-00805F9B34FB"); //battery level
   std::string bateria = pCharacteristic->readValue(); 
-  BLERemoteService* pService = pClient->getService("0000181A-0000-1000-8000-00805F9B34FB");
+  BLERemoteService* pService2 = pClient->getService("0000181A-0000-1000-8000-00805F9B34FB");
   pCharacteristic = pService->getCharacteristic("00002A1F-0000-1000-8000-00805F9B34FB");//Temperature
   std::string temperatura = pCharacteristic->readValue(); //temperature=(hex2*255+hex1)/100
-  pCharacteristic = pService->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");//Humidity
-  std::string humedad = pCharacteristic->readValue(); //humidity=(hex2*2.55)+(hex1/100)
-  Serial.println("The characteristic value was: ");
+  //pCharacteristic = pService2->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");//Humidity
+  //std::string humedad = pCharacteristic->readValue(); //humidity=(hex2*2.55)+(hex1/100)
+  Serial.println("The battery value was: ");
   Serial.println(bateria.c_str());
   for (size_t i = 0; i < bateria.size(); ++i) {
       Serial.print("0x");
@@ -118,6 +118,17 @@ void loop() {
         Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
       }
       Serial.print(bateria[i], HEX);
+      Serial.print(" ");
+    }
+  Serial.println();
+  Serial.println("The temperature value was: ");
+  Serial.println(temperatura.c_str());
+  for (size_t i = 0; i < temperatura.size(); ++i) {
+      Serial.print("0x");
+      if (temperatura[i] < 0x10) {
+        Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
+      }
+      Serial.print(temperatura[i], HEX);
       Serial.print(" ");
     }
   Serial.println();
