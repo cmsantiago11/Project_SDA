@@ -10,19 +10,7 @@
 #include "NimBLEEddystoneTLM.h"
 #include "NimBLEBeacon.h"
 
-
-
-#define ENDIAN_CHANGE_U16(x) ((((x)&0xFF00) >> 8) + (((x)&0xFF) << 8))
-
-int scanTime = 5; //In seconds
-BLEScan *pBLEScan;
-
-BLEClient*  pClient;
-BLERemoteCharacteristic* pCharacteristic;
-
-BLEAdvertisedDevice sensor;
-
-
+#include "sensor.h"
 
 const char* ssid = "Azrrael";
 const char* password = "3006750425ABC";
@@ -46,7 +34,7 @@ void init_wifi(const char* nombre_red,const char* contrasena){
 void init_mqtt(const char* servidor,const int port){
   client.setServer(servidor,port);
   while (!client.connected()){      
-    client.connect("ESP32Client");
+    client.connect("ESP32Client_0000w3ds");
     delay(500);
   }
   Serial.println("Conectado al servidor MQTT");
@@ -66,73 +54,47 @@ void send_Json(float temp, float hum, float bat){
 }
 
 
+BLEClient*  pClient;
 
 void setup() {
   Serial.begin(115200);
-  init_wifi(ssid,password);
-  init_mqtt(mqttServer,mqttPort);
+  init_wifi(ssid, password);
+  init_mqtt(mqttServer, mqttPort);
 
 
   BLEDevice::init("");
+  BLEScan *pBLEScan;
+  BLEAdvertisedDevice sensor;
+
   pBLEScan = BLEDevice::getScan(); //create new scan
   pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99); // less or equal setInterval value
-  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+  BLEScanResults foundDevices = pBLEScan->start(5, false);
   Serial.print("Devices found: ");
   Serial.println(foundDevices.getCount());
   for (int i=0; i<foundDevices.getCount(); i++) {
-    //Serial.println(foundDevices.getDevice(i).getAddress().toString().c_str());
     if (foundDevices.getDevice(i).getName() == "ATC_6B3C77") {
       pBLEScan->stop();
-      sensor = foundDevices.getDevice(i);
-      Serial.println("Found ATC_6B3C77");
+      Serial.println("Found ATC_6B3C77.. waiting for info");
+      BLEAdvertisedDevice sensor = foundDevices.getDevice(i);
+      delay(10000);
       pClient  = BLEDevice::createClient();
       pClient->connect(&sensor);
       Serial.println(" - Connected to server");
-      //pClient->discoverAttributes();
-      Serial.println(" - Discovered attributes");
       break;
     } 
   }
-  pBLEScan->clearResults(); 
+  pBLEScan->clearResults();
 }
 
-
-
 void loop() {
-  
-  BLERemoteService* pService = pClient->getService("0000180F-0000-1000-8000-00805F9B34FB"); 
-  pCharacteristic = pService->getCharacteristic("00002A19-0000-1000-8000-00805F9B34FB"); //battery level
-  std::string bateria = pCharacteristic->readValue(); 
-  BLERemoteService* pService2 = pClient->getService("0000181A-0000-1000-8000-00805F9B34FB");
-  pCharacteristic = pService->getCharacteristic("00002A1F-0000-1000-8000-00805F9B34FB");//Temperature
-  std::string temperatura = pCharacteristic->readValue(); //temperature=(hex2*255+hex1)/100
-  //pCharacteristic = pService2->getCharacteristic("00002A6F-0000-1000-8000-00805F9B34FB");//Humidity
-  //std::string humedad = pCharacteristic->readValue(); //humidity=(hex2*2.55)+(hex1/100)
-  Serial.println("The battery value was: ");
-  Serial.println(bateria.c_str());
-  for (size_t i = 0; i < bateria.size(); ++i) {
-      Serial.print("0x");
-      if (bateria[i] < 0x10) {
-        Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
-      }
-      Serial.print(bateria[i], HEX);
-      Serial.print(" ");
-    }
-  Serial.println();
-  Serial.println("The temperature value was: ");
-  Serial.println(temperatura.c_str());
-  for (size_t i = 0; i < temperatura.size(); ++i) {
-      Serial.print("0x");
-      if (temperatura[i] < 0x10) {
-        Serial.print("0");  // Agregar un cero inicial para valores menores a 0x10
-      }
-      Serial.print(temperatura[i], HEX);
-      Serial.print(" ");
-    }
-  Serial.println();
-  send_Json(random(100)/10,random(100)/10,random(100)/10);
-
-  delay(3000);
+  float temp = getTemperature(pClient);
+  float hum = getHumidity(pClient);
+  uint8_t bat = getBatteryLevel(pClient);
+  send_Json(temp, hum, bat);
+  Serial.print("Temp: "); Serial.println(temp);
+  Serial.print("Hum: "); Serial.println(hum);
+  Serial.print("Bat: "); Serial.println(bat);
+  delay(20000);
 }
