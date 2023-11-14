@@ -14,8 +14,8 @@
 #include "communication.h"
 #include "scan.h"
 
-const char* ssid = "Azrrael";
-const char* password = "3006750425ABC";
+const char* ssid = "xxxxxxx";
+const char* password = "xxxxxx";
 const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883;
 
